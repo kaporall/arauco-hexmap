@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arauco · Mapa Isométrico</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg1:#0a0c14; --bg2:#111520;
+  --gold:#e8b84b; --gold2:#f5d06e; --gold3:#fff3c0;
+  --blue:#4a9eff; --blue2:#7bb8ff;
+  --green:#3dca5c; --green2:#6de88a;
+  --purple:#b06cff; --purple2:#d09fff;
+  --orange:#ff8c42; --orange2:#ffb07a;
+  --teal:#00c9b1; --teal2:#4de0cc;
+  --text:#f0eada; --muted:#8a7e65;
+  --card-bg:rgba(15,20,35,0.96);
+}
+
+body{
+  font-family:'Exo 2',sans-serif;
+  background:var(--bg1);
+  color:var(--text);
+  height:100vh; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+
+/* ── STARFIELD ── */
+#stars{position:fixed;inset:0;pointer-events:none;z-index:0}
+
+/* ── TOP BAR ── */
+.topbar{
+  position:relative;z-index:10;
+  background:linear-gradient(180deg,rgba(10,12,20,0.98),rgba(10,12,20,0.85));
+  border-bottom:1px solid rgba(232,184,75,0.15);
+  padding:0 20px;
+  display:flex;align-items:center;gap:16px;
+  height:56px;flex-shrink:0;
+}
+
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-hex{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,#c8a020,#f5d06e);
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;flex-shrink:0;
+}
+.logo-text{
+  font-family:'Cinzel',serif;
+  font-size:0.95rem;font-weight:700;
+  color:var(--gold2);letter-spacing:2px;
+  text-shadow:0 0 20px rgba(232,184,75,0.4);
+}
+.logo-text small{
+  display:block;font-family:'Exo 2',sans-serif;
+  font-size:0.55rem;color:var(--muted);
+  font-weight:400;letter-spacing:3px;margin-top:1px;
+}
+
+.topbar-sep{width:1px;height:20px;background:rgba(232,184,75,0.15)}
+
+.cat-filters{display:flex;gap:6px;margin-left:auto}
+.cat-btn{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 13px;border-radius:20px;
+  font-size:0.65rem;font-weight:600;
+  cursor:pointer;transition:0.2s;
+  letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.03);color:var(--muted);
+  font-family:'Exo 2',sans-serif;
+}
+.cat-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.15)}
+.cat-btn.on{color:#000 !important;font-weight:700}
+.cat-btn .cbdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;overflow:hidden;position:relative;z-index:1}
+
+/* ── CANVAS AREA ── */
+.canvas-wrap{
+  flex:1;position:relative;overflow:hidden;
+  cursor:grab;
+}
+.canvas-wrap.drag{cursor:grabbing}
+#hexCanvas{display:block;width:100%;height:100%}
+
+/* ── INFO PANEL ── */
+.panel{
+  width:300px;flex-shrink:0;
+  background:linear-gradient(180deg,rgba(10,14,22,0.98),rgba(8,11,18,0.99));
+  border-left:1px solid rgba(232,184,75,0.12);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  position:relative;z-index:5;
+}
+
+/* Panel header decorativo */
+.panel::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:200px;
+  background:radial-gradient(ellipse at 50% 0%,rgba(232,184,75,0.06) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+.panel-top{
+  padding:20px 18px 14px;
+  border-bottom:1px solid rgba(232,184,75,0.1);
+  position:relative;
+}
+
+.panel-eyebrow{
+  font-size:0.58rem;letter-spacing:4px;
+  color:var(--muted);text-transform:uppercase;
+  margin-bottom:6px;font-family:'Exo 2',sans-serif;
+}
+
+.panel-title{
+  font-family:'Cinzel',serif;
+  font-size:1.2rem;font-weight:700;
+  line-height:1.1;
+  transition:color 0.3s;
+  min-height:28px;
+}
+
+.panel-subtitle{
+  font-size:0.65rem;letter-spacing:2px;
+  text-transform:uppercase;margin-top:5px;
+  transition:color 0.3s;font-weight:600;
+}
+
+/* Hex badge */
+.hex-badge{
+  position:absolute;top:16px;right:16px;
+  width:44px;height:44px;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;transition:background 0.3s;
+  background:rgba(232,184,75,0.15);
+}
+
+/* Stats */
+.stats-row{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:6px;padding:14px 18px;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+}
+
+.stat{
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:8px;padding:8px 6px;text-align:center;
+  position:relative;overflow:hidden;
+}
+
+.stat::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:2px;
+  transition:background 0.3s;
+}
+
+.stat-val{
+  font-family:'Cinzel',serif;
+  font-size:0.85rem;font-weight:700;
+  display:block;line-height:1;
+  margin-bottom:3px;
+  transition:color 0.3s;
+}
+.stat-lbl{
+  font-size:0.5rem;color:var(--muted);
+  letter-spacing:1px;text-transform:uppercase;
+}
+
+/* Panel scroll body */
+.panel-scroll{flex:1;overflow-y:auto;padding:14px 18px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(232,184,75,0.15) transparent;
+}
+
+.p-section-title{
+  font-size:0.58rem;letter-spacing:3px;
+  color:var(--muted);text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;gap:8px;
+}
+.p-section-title::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.05)}
+
+.p-desc{
+  font-size:0.78rem;line-height:1.75;
+  color:rgba(240,234,218,0.7);margin-bottom:14px;
+}
+.p-desc strong{color:var(--text)}
+.p-desc em{font-style:normal;transition:color 0.3s}
+
+/* Fact items */
+.fact{
+  display:grid;grid-template-columns:28px 70px 1fr;
+  align-items:start;gap:6px;
+  padding:7px 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  font-size:0.72rem;
+}
+.fact:last-child{border-bottom:none}
+.fact-ico{font-size:0.85rem}
+.fact-key{color:var(--muted);font-size:0.68rem}
+.fact-val{color:var(--text);line-height:1.4}
+
+/* Tags */
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin:14px 0}
+.htag{
+  font-size:0.58rem;font-weight:600;
+  padding:3px 9px;border-radius:4px;
+  letter-spacing:0.5px;border:1px solid;
+  font-family:'Exo 2',sans-serif;
+}
+
+/* Loc list */
+.loc-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 8px;border-radius:8px;
+  cursor:pointer;transition:0.15s;
+  margin-bottom:2px;
+}
+.loc-item:hover{background:rgba(255,255,255,0.03)}
+.loc-item.sel{background:rgba(232,184,75,0.06)}
+.li-hex{
+  width:28px;height:28px;flex-shrink:0;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.8rem;
+}
+.li-info{flex:1}
+.li-name{font-size:0.78rem;font-weight:600;margin-bottom:1px}
+.li-cat{font-size:0.6rem;color:var(--muted)}
+.li-arr{font-size:0.7rem;color:var(--muted);transition:0.2s}
+.loc-item:hover .li-arr,.loc-item.sel .li-arr{color:var(--gold)}
+
+/* Empty */
+.empty{text-align:center;padding:30px 0}
+.empty-ico{font-size:2.5rem;opacity:0.2;display:block;margin-bottom:8px}
+.empty-txt{font-size:0.75rem;color:var(--muted)}
+
+/* Tooltip */
+#tip{
+  position:fixed;z-index:200;
+  background:rgba(8,11,18,0.97);
+  border:1px solid rgba(232,184,75,0.3);
+  border-radius:8px;padding:8px 12px;
+  pointer-events:none;display:none;
+  backdrop-filter:blur(12px);
+  font-family:'Exo 2',sans-serif;
+}
+.tip-name{font-size:0.78rem;font-weight:700;color:var(--gold2);margin-bottom:1px}
+.tip-cat{font-size:0.6rem;color:var(--muted);letter-spacing:1px}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="topbar">
+  <div class="logo-wrap">
+    <div class="logo-hex">⬡</div>
+    <div class="logo-text">Arauco Hex Map
+      <small>Dpto. Arauco · La Rioja · Argentina</small>
+    </div>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="cat-filters" id="catFilters">
+    <button class="cat-btn on" data-cat="all" style="background:rgba(232,184,75,0.15);border-color:rgba(232,184,75,0.4);color:#000" onclick="setFilter('all',this)">
+      <span class="cbdot" style="background:#e8b84b"></span> Todo
+    </button>
+    <button class="cat-btn" data-cat="nat" onclick="setFilter('nat',this)">
+      <span class="cbdot" style="background:#3dca5c"></span> Naturaleza
+    </button>
+    <button class="cat-btn" data-cat="his" onclick="setFilter('his',this)">
+      <span class="cbdot" style="background:#4a9eff"></span> Historia
+    </button>
+    <button class="cat-btn" data-cat="gas" onclick="setFilter('gas',this)">
+      <span class="cbdot" style="background:#ff8c42"></span> Gastronomía
+    </button>
+    <button class="cat-btn" data-cat="rel" onclick="setFilter('rel',this)">
+      <span class="cbdot" style="background:#b06cff"></span> Religioso
+    </button>
+    <button class="cat-btn" data-cat="aven" onclick="setFilter('aven',this)">
+      <span class="cbdot" style="background:#00c9b1"></span> Aventura
+    </button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="hexCanvas"></canvas>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panel-top">
+      <div class="panel-eyebrow">Ubicación</div>
+      <div class="panel-title" id="pTitle" style="color:var(--gold2)">Explorar el mapa</div>
+      <div class="panel-subtitle" id="pSub" style="color:var(--muted)">Seleccioná un hexágono</div>
+      <div class="hex-badge" id="pBadge">⬡</div>
+    </div>
+
+    <div class="stats-row" id="pStats">
+      <div class="stat"><span class="stat-val" style="color:var(--gold2)">8</span><span class="stat-lbl">Lugares</span></div>
+      <div class="stat"><span class="stat-val" style="color:var(--blue2)">400+</span><span class="stat-lbl">Años hist.</span></div>
+      <div class="stat"><span class="stat-val" style="color:var(--green2)">18k</span><span class="stat-lbl">Habitantes</span></div>
+    </div>
+
+    <div class="panel-scroll" id="pBody">
+      <div id="locListWrap">
+        <div class="p-section-title">Todas las ubicaciones</div>
+        <div id="locList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip">
+  <div class="tip-name" id="tipName"></div>
+  <div class="tip-cat" id="tipCat"></div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  DATOS
+// ════════════════════════════════════════════════════════════
+const LOCS = [
+  {
+    id:'aim', name:'Aimogasta', emoji:'🏘️',
+    cat:'Ciudad Capital', catKey:'his', color:'#e8b84b', colorDark:'#7a5a10',
+    q:0, r:0,
+    stats:[{v:'18k',l:'Habitantes'},{v:'111km',l:'Capital'},{v:'640m',l:'Altitud'}],
+    desc:`<strong>Capital del Dpto. Arauco</strong>, a 111km al norte de La Rioja Capital. Fundada en el siglo XVII, su nombre del quechua significa "Pueblo del Arco". Es el <em style="color:#e8b84b">centro olivícola más importante de Argentina</em>, produciendo el 30% del aceite de oliva nacional con la variedad autóctona Arauco. El río que nace en el Parque Los Nacimientos atraviesa toda la ciudad, dotándola de un paisaje único entre el desierto riojano. Cada 24 de mayo celebra la Fiesta Nacional de la Olivicultura.`,
+    facts:[
+      {i:'🫒',k:'Producción',v:'30% del aceite de oliva nacional'},
+      {i:'🌳',k:'Símbolo',v:'Olivo Cuatricentenario (400+ años)'},
+      {i:'📅',k:'Fiesta',v:'24/mayo — Fiesta Nacional Olivicultura'},
+      {i:'💧',k:'Río',v:'Nace en Los Nacimientos y cruza la ciudad'},
+      {i:'🛰️',k:'2026',v:'Arauco Digital Hub — WiFi Starlink'},
+    ],
+    tags:['Capital','Olivicultura','Colonial','Río urbano'],
+  },
+  {
+    id:'bar', name:'Señor de la Peña', emoji:'⛪',
+    cat:'Religioso · Masivo', catKey:'rel', color:'#b06cff', colorDark:'#4a1a80',
+    q:2, r:-1,
+    stats:[{v:'100k',l:'Peregrinos'},{v:'12 m',l:'Formación'},{v:'1593',l:'Origen'}],
+    desc:`En el Barrial de Arauco se levanta una <strong>formación rocosa de 12 metros</strong> con forma de rostro de Cristo — el Señor de la Peña — principal punto de peregrinación de La Rioja. Cada Semana Santa convoca entre 50.000 y 100.000 peregrinos al desierto. Antes de la evangelización española, esta piedra era sagrada para los diaguitas que la llamaban <em style="color:#b06cff">LLASTAY</em>, dios tutelar de los cerros. Un caso único de sincretismo religioso en Argentina. El Barrial también es ideal para la práctica del <strong>carrovelismo</strong>, aprovechando el viento constante del desierto.`,
+    facts:[
+      {i:'🗿',k:'Formación',v:'Roca de 12m con rostro de Cristo'},
+      {i:'🌬️',k:'Carrovelismo',v:'Vientos ideales para el deporte'},
+      {i:'👥',k:'Peregrinación',v:'50.000–100.000 personas/año'},
+      {i:'🏺',k:'Prehispánico',v:'Llastay — dios tutelar diaguita'},
+      {i:'📡',k:'2026',v:'Arauco Digital Hub — WiFi Starlink'},
+    ],
+    tags:['Peregrinación','12m de roca','Carrovelismo','Sincretismo'],
+  },
+  {
+    id:'oli', name:'Olivo Cuatricentenario', emoji:'🌳',
+    cat:'Patrimonio Cultural', catKey:'his', color:'#3dca5c', colorDark:'#0d5020',
+    q:-1, r:-1,
+    stats:[{v:'400+',l:'Años'},{v:'Mon.',l:'Nacional'},{v:'0.3%',l:'Acidez'}],
+    desc:`<strong>El olivo más antiguo de América</strong>, declarado Monumento Nacional. Plantado por los jesuitas en el siglo XVII como parte de las primeras experiencias olivícolas del Nuevo Mundo. Con más de 400 años, <em style="color:#3dca5c">sigue produciendo aceitunas</em> cuyo aceite posee una acidez menor al 0.3%, considerado entre los mejores del planeta. Es el punto de partida de la famosa Ruta del Olivo riojana y recibe miles de visitantes anualmente que vienen a contemplar este testimonio vivo de la colonización española.`,
+    facts:[
+      {i:'🌳',k:'Especie',v:'Olea europaea — variedad Arauco'},
+      {i:'⛪',k:'Origen',v:'Plantado por misioneros jesuitas'},
+      {i:'🫒',k:'Acidez',v:'< 0.3% — categoría extra virgen premium'},
+      {i:'🏛️',k:'Decreto',v:'Monumento Nacional por ley'},
+      {i:'🗺️',k:'Ruta',v:'Inicio de la Ruta del Olivo riojana'},
+    ],
+    tags:['400 años','Jesuitas','Monumento Nacional','Turismo cultural'],
+  },
+  {
+    id:'maz', name:'Villa Mazán · Termas', emoji:'♨️',
+    cat:'Turismo · Termas', catKey:'aven', color:'#4a9eff', colorDark:'#0a2a60',
+    q:-2, r:1,
+    stats:[{v:'38-43°C',l:'Termas'},{v:'70km',l:'De Aim.'},{v:'Chandler',l:'Nueces'}],
+    desc:`Las <strong>Termas de Santa Teresita</strong> ofrecen aguas mesotermales entre 38°C y 43°C con propiedades terapéuticas reconocidas para afecciones reumáticas y de la piel. Desde Villa Mazán parte también la <em style="color:#4a9eff">Quebrada de Mazán</em>, un paisaje natural de cañones y formaciones rocosas ideal para senderismo y trekking de dificultad media. La zona es además la principal productora de nueces Chandler del país, con exportaciones a Europa, Estados Unidos y Japón. Presencia franciscana desde el siglo XVIII dejó huellas arquitectónicas únicas en la región.`,
+    facts:[
+      {i:'♨️',k:'Termas',v:'38°C–43°C — aguas mesotermales'},
+      {i:'🥾',k:'Quebrada',v:'Senderismo en cañones naturales'},
+      {i:'🌰',k:'Nueces',v:'Chandler — exportación a 4 continentes'},
+      {i:'🏛️',k:'Franciscanos',v:'Arquitectura colonial siglo XVIII'},
+      {i:'🚗',k:'Distancia',v:'70km desde Aimogasta por ruta 38'},
+    ],
+    tags:['Termas 38-43°C','Quebrada','Nueces Chandler','Senderismo'],
+  },
+  {
+    id:'qui', name:'Facundo Quiroga', emoji:'⚔️',
+    cat:'Historia · Caudillo', catKey:'his', color:'#ff8c42', colorDark:'#6a2800',
+    q:1, r:2,
+    stats:[{v:'1788',l:'Nacimiento'},{v:'1835',l:'Asesinado'},{v:'Tigre',l:'Apodo'}],
+    desc:`<strong>Facundo Quiroga</strong>, "el Tigre de los Llanos", nació en los llanos riojanos en 1788 y se convirtió en el caudillo federal más temido del siglo XIX. Recorrió el Departamento Arauco múltiples veces con sus montoneras, ganando batallas clave como Oncativo (1830). Su figura fue inmortalizada por Domingo F. Sarmiento en <em style="color:#ff8c42">"Facundo: Civilización o Barbarie"</em> (1845), uno de los textos fundacionales de la literatura argentina. Fue asesinado en Barranca Yaco, Córdoba, en 1835, en uno de los crímenes políticos más resonantes de la historia nacional.`,
+    facts:[
+      {i:'⚔️',k:'Victoria clave',v:'Batalla de Oncativo (1830)'},
+      {i:'📚',k:'Literatura',v:'"Facundo" de Sarmiento (1845)'},
+      {i:'💀',k:'Asesinato',v:'Barranca Yaco, Córdoba — 1835'},
+      {i:'🏛️',k:'Legado',v:'Símbolo del federalismo riojano'},
+      {i:'🗺️',k:'Ruta',v:'Ruta de los Caudillos riojanos'},
+    ],
+    tags:['1788-1835','Tigre de los Llanos','Federalismo','Literatura argentina'],
+  },
+  {
+    id:'olv', name:'Zona Olivícola', emoji:'🫒',
+    cat:'Producción · Economía', catKey:'gas', color:'#7dc859', colorDark:'#2a5010',
+    q:-1, r:2,
+    stats:[{v:'30%',l:'Nacional'},{v:'40+',l:'Fábricas'},{v:'4 cont.',l:'Exporta'}],
+    desc:`El corazón productivo del departamento genera el <strong>30% del aceite de oliva de Argentina</strong>. La variedad <em style="color:#7dc859">Arauco</em> es endémica — única en el mundo, más grande, más amarga y con mayor rendimiento que las europeas. Más de 40 establecimientos entre grandes industriales y pequeños productores artesanales trabajan con métodos que van desde la extracción en frío de primera prensada hasta técnicas centenarias. El microclima local — veranos calurosos, inviernos fríos y baja humedad — crea condiciones óptimas según expertos mundiales en olivicultura.`,
+    facts:[
+      {i:'🫒',k:'Variedad',v:'Arauco — endémica de La Rioja'},
+      {i:'🏭',k:'Establecimientos',v:'40+ fábricas en el departamento'},
+      {i:'✈️',k:'Exportación',v:'Europa, EEUU, Brasil, Japón'},
+      {i:'🌡️',k:'Microclima',v:'Amplitud térmica ideal para olivos'},
+      {i:'🥇',k:'Premios',v:'Aceite premiado internacionalmente'},
+    ],
+    tags:['30% nacional','Variedad Arauco','Exportación mundial','40+ fábricas'],
+  },
+  {
+    id:'pan', name:'Bañados · Fuerte del Pantano', emoji:'🦩',
+    cat:'Naturaleza · Historia', catKey:'nat', color:'#00c9b1', colorDark:'#004a42',
+    q:0, r:3,
+    stats:[{v:'40+',l:'Sp. aves'},{v:'1700s',l:'Fuerte'},{v:'Único',l:'Humedal'}],
+    desc:`Los Bañados de los Pantanos son un <strong>humedal único en el árido riojano</strong>, albergando más de 40 especies de aves como flamencos rosados, garzas y patos silvestres. En sus inmediaciones se halla el <em style="color:#00c9b1">Fuerte del Pantano</em>, Monumento Histórico Nacional que recuerda la resistencia indígena diaguita frente a las fuerzas coloniales españolas en el siglo XVII. Este fuerte fue escenario de enfrentamientos que definieron la configuración territorial de la región. Visita ideal combinando naturaleza y arqueología en un solo recorrido.`,
+    facts:[
+      {i:'🦩',k:'Fauna',v:'Flamencos, garzas, patos silvestres'},
+      {i:'🏛️',k:'Fuerte',v:'Monumento Histórico Nacional'},
+      {i:'⚔️',k:'Historia',v:'Resistencia indígena diaguita s. XVII'},
+      {i:'💧',k:'Origen',v:'Afluentes Sierra de Velasco'},
+      {i:'🔭',k:'Mejor época',v:'Primavera — septiembre a noviembre'},
+    ],
+    tags:['Birdwatching','Fuerte colonial','Humedal','Monumento Nacional'],
+  },
+  {
+    id:'mac', name:'Machigasta', emoji:'🏺',
+    cat:'Arqueología', catKey:'his', color:'#4a9eff', colorDark:'#0a2a60',
+    q:2, r:1,
+    stats:[{v:'500 dC',l:'Cultura Aguada'},{v:'3',l:'Sit. rupestres'},{v:'Pre-inca',l:'Época'}],
+    desc:`Pueblo con raíces prehispánicas profundas, sede de vestigios de la <strong>Cultura Aguada</strong> (500–1000 d.C.), una de las civilizaciones más avanzadas del NOA precolombino. Famosa por su cerámica "draconiana" con motivos de serpientes y felinos de gran complejidad simbólica. Alberga <em style="color:#4a9eff">tres sitios de petroglifos</em> con grabados en piedra de origen diaguita. Fue escenario de batallas durante las guerras civiles del siglo XIX y punto de reducción indígena en la época colonial. Un destino imprescindible para los amantes de la arqueología y la historia precolombina.`,
+    facts:[
+      {i:'🏺',k:'Cerámica',v:'Aguada draconiana — serpientes y felinos'},
+      {i:'🗿',k:'Petroglifos',v:'3 sitios de grabados en piedra'},
+      {i:'⚔️',k:'Historia',v:'Batallas de Facundo Quiroga s. XIX'},
+      {i:'🏛️',k:'Colonial',v:'Reducción indígena siglo XVII'},
+      {i:'🔬',k:'Hallazgos',v:'Excavaciones arqueológicas en curso'},
+    ],
+    tags:['Cultura Aguada','Petroglifos','Arqueología','Diaguitas'],
+  },
+  // ── NUEVAS UBICACIONES ───────────────────────────────────
+  {
+    id:'nac', name:'Parque Los Nacimientos', emoji:'💧',
+    cat:'Naturaleza · Recreación', catKey:'nat', color:'#22d3ee', colorDark:'#064e5a',
+    q:1, r:-1,
+    stats:[{v:'Río',l:'Cruza Aim.'},{v:'Asadores',l:'Equipados'},{v:'Gratuito',l:'Acceso'}],
+    desc:`<strong>Parque Los Nacimientos</strong> es el espacio natural más querido por los aimogasteños. Es aquí donde nace el <em style="color:#22d3ee">río que se extiende a lo largo de toda la ciudad de Aimogasta</em>, creando un corredor verde único en el árido riojano. El parque ofrece vertientes naturales de agua cristalina, áreas de recreación familiar con asadores equipados, zonas de picnic y senderos entre la vegetación ribereña. Un oasis natural donde convergen la naturaleza y el descanso, de acceso libre y gratuito para residentes y visitantes durante todo el año.`,
+    facts:[
+      {i:'💧',k:'Río',v:'Nace aquí y atraviesa toda Aimogasta'},
+      {i:'🌿',k:'Vegetación',v:'Flora ribereña — álamos y sauces'},
+      {i:'🔥',k:'Asadores',v:'Equipados para uso familiar'},
+      {i:'🚶',k:'Senderos',v:'Recorridos entre vertientes naturales'},
+      {i:'🆓',k:'Acceso',v:'Gratuito y abierto todo el año'},
+    ],
+    tags:['Río urbano','Picnic','Familia','Naturaleza gratuita'],
+  },
+  {
+    id:'tea', name:'Teatro María Belén Brizuela', emoji:'🎭',
+    cat:'Cultura · Arte', catKey:'his', color:'#f472b6', colorDark:'#7a1040',
+    q:-1, r:1,
+    stats:[{v:'Histórico',l:'Patrimonio'},{v:'Cultura',l:'Viva'},{v:'Arauco',l:'Identidad'}],
+    desc:`El <strong>Teatro María Belén Brizuela</strong> lleva el nombre de una figura destacada de la cultura riojana, honrando el legado artístico y cultural del Departamento Arauco. Es el principal centro de expresión artística de Aimogasta, donde se realizan obras teatrales, festivales musicales, muestras de danza folklórica y eventos culturales que mantienen viva la identidad riojana. Su arquitectura y programación lo convierten en un <em style="color:#f472b6">polo cultural fundamental</em> para la comunidad, conectando a las nuevas generaciones con las tradiciones artísticas de la región.`,
+    facts:[
+      {i:'🎭',k:'Eventos',v:'Teatro, música, danza y folklore'},
+      {i:'🎵',k:'Folklore',v:'Chaya y chacarera riojana'},
+      {i:'🏛️',k:'Patrimonio',v:'Centro cultural histórico de Arauco'},
+      {i:'👩‍🎨',k:'Brizuela',v:'Figura cultural homenajeada'},
+      {i:'🎪',k:'Temporada',v:'Actividad todo el año'},
+    ],
+    tags:['Teatro','Cultura','Folklore','Patrimonio riojano'],
+  },
+  {
+    id:'udp', name:'Udpinango', emoji:'🕊️',
+    cat:'Turismo de Fe · Naturaleza', catKey:'rel', color:'#a78bfa', colorDark:'#3b1a7a',
+    q:-3, r:2,
+    stats:[{v:'1788',l:'Iglesia'},{v:'Fe',l:'y Naturaleza'},{v:'Frontera',l:'Catamarca'}],
+    desc:`Distrito fronterizo del Departamento Arauco que ofrece una combinación única de <strong>turismo de fe y naturaleza</strong>. La <em style="color:#a78bfa">Iglesia de Udpinango, construida en 1788</em>, es una de las más antiguas del departamento y un testimonio vivo de la arquitectura colonial riojana. Su entorno natural de serranías, fauna autóctona — lagarto overo, quirquincho, vizcacha — y vegetación de puna brinda experiencias de ecoturismo auténtico. Fue zona de disputa territorial entre La Rioja y Catamarca durante el siglo XIX, cuando se definían los límites provinciales post-independencia.`,
+    facts:[
+      {i:'⛪',k:'Iglesia',v:'Construida en 1788 — colonial'},
+      {i:'🦎',k:'Fauna',v:'Lagarto overo, quirquincho, vizcacha'},
+      {i:'🗺️',k:'Frontera',v:'Límite histórico La Rioja–Catamarca'},
+      {i:'🥾',k:'Naturaleza',v:'Serranías y ecoturismo auténtico'},
+      {i:'📿',k:'Fe',v:'Procesiones y celebraciones patronales'},
+    ],
+    tags:['Iglesia 1788','Turismo de Fe','Fauna nativa','Colonial'],
+  },
+  {
+    id:'tor', name:'Reserva Cerro El Toro', emoji:'🏔️',
+    cat:'Aventura · Trekking', catKey:'aven', color:'#fb923c', colorDark:'#7a2800',
+    q:3, r:-1,
+    stats:[{v:'Trekking',l:'Senderos'},{v:'4x4',l:'Circuitos'},{v:'MTB',l:'Bicicleta'}],
+    desc:`La <strong>Reserva Cerro El Toro</strong> es el destino de aventura más completo del departamento. Sus paisajes de cerros y quebradas ofrecen circuitos de <em style="color:#fb923c">trekking, mountain bike y recorridos en 4x4</em> para todos los niveles de dificultad. Desde sus cimas se obtienen vistas panorámicas del llano riojano que llegan hasta el horizonte. La fauna incluye cóndores andinos, zorros y pumas en las zonas más remotas. Ideal para quienes buscan una experiencia de contacto real con la naturaleza salvaje del NOA argentino, lejos de los circuitos turísticos masivos.`,
+    facts:[
+      {i:'🥾',k:'Trekking',v:'Senderos de dificultad media y alta'},
+      {i:'🚵',k:'MTB',v:'Circuitos de mountain bike'},
+      {i:'🚙',k:'4x4',v:'Recorridos en vehículo todo terreno'},
+      {i:'🦅',k:'Fauna',v:'Cóndores, zorros, pumas'},
+      {i:'📸',k:'Vistas',v:'Panorámica del llano riojano'},
+    ],
+    tags:['Trekking','Mountain bike','4x4','Cóndores'],
+  },
+  {
+    id:'cas', name:'Castillo de Dionisio', emoji:'🏰',
+    cat:'Arquitectura Única', catKey:'his', color:'#f59e0b', colorDark:'#7a4a00',
+    q:0, r:-2,
+    stats:[{v:'Gaudí',l:'Inspiración'},{v:'Van Gogh',l:'Estética'},{v:'Único',l:'En La Rioja'}],
+    desc:`El <strong>Castillo de Dionisio (Santa Vera Cruz)</strong> es una obra arquitectónica única en todo el NOA argentino. Construida por Dionisio Rodríguez, autodidacta apasionado, con piedras locales durante décadas, está inspirada en la arquitectura de <em style="color:#f59e0b">Antoni Gaudí y la paleta cromática de Vincent Van Gogh</em>. Sus torres, mosaicos de cerámica colorida, ventanas en arco y detalles ornamentales crean un edificio de fantasía en medio del paisaje árido riojano. Considerada una obra de arte popular monumental, atrae a arquitectos, artistas y viajeros de todo el mundo que llegan para fotografiarla y estudiarla.`,
+    facts:[
+      {i:'🏛️',k:'Inspiración',v:'Gaudí y Van Gogh — arte popular'},
+      {i:'🪨',k:'Materiales',v:'Piedras locales — construcción artesanal'},
+      {i:'🎨',k:'Mosaicos',v:'Cerámica colorida estilo modernista'},
+      {i:'👷',k:'Constructor',v:'Dionisio Rodríguez — autodidacta'},
+      {i:'📸',k:'Turismo',v:'Atrae artistas y arquitectos del mundo'},
+    ],
+    tags:['Arquitectura única','Gaudí','Arte popular','Patrimonio'],
+  },
+  {
+    id:'mus', name:'Museo Regional Aimogasta', emoji:'🏛️',
+    cat:'Historia · Cultura', catKey:'his', color:'#c084fc', colorDark:'#4a0a7a',
+    q:1, r:0,
+    stats:[{v:'Colonial',l:'Período'},{v:'Diaguita',l:'Culturas'},{v:'Local',l:'Identidad'}],
+    desc:`El <strong>Museo Regional de Aimogasta</strong> conserva y exhibe el patrimonio histórico y cultural del Departamento Arauco desde la prehistoria hasta la época contemporánea. Sus colecciones incluyen cerámica y objetos de las culturas <em style="color:#c084fc">diaguita, Aguada y colonial española</em>, documentos históricos de las guerras civiles del siglo XIX, herramientas de la industria olivícola centenaria y testimonios de la vida cotidiana riojana. Un recorrido imprescindible para comprender la identidad profunda del departamento antes de explorar sus otros atractivos.`,
+    facts:[
+      {i:'🏺',k:'Colecciones',v:'Cerámica diaguita y Aguada'},
+      {i:'📜',k:'Documentos',v:'Historia colonial y guerras civiles'},
+      {i:'🫒',k:'Olivicultura',v:'Herramientas de la industria centenaria'},
+      {i:'🎓',k:'Educativo',v:'Visitas guiadas para escuelas'},
+      {i:'📍',k:'Ubicación',v:'Centro de Aimogasta — acceso libre'},
+    ],
+    tags:['Historia local','Arqueología','Colonial','Diaguitas'],
+  },
+  {
+    id:'eol', name:'Parque Eólico Arauco', emoji:'🌬️',
+    cat:'Energías Renovables', catKey:'aven', color:'#34d399', colorDark:'#064a28',
+    q:3, r:-2,
+    stats:[{v:'Winti',l:'Centro guiado'},{v:'Eólica',v2:'Solar',l:'Energías'},{v:'Futuro',l:'Sustentable'}],
+    desc:`El <strong>Parque Eólico Arauco</strong> y su Centro de Interpretación Winti representan el compromiso de La Rioja con las energías limpias. Con visitas guiadas para estudiantes, familias y turistas, el complejo permite comprender cómo la energía eólica y solar se aprovechan en el árido riojano para abastecer a comunidades rurales. <em style="color:#34d399">El Centro Winti</em> — nombre que en lengua originaria significa "viento" — ofrece experiencias interactivas, maquetas de aerogeneradores y exposiciones sobre el impacto ambiental positivo de las energías renovables en la región patagónico-andina.`,
+    facts:[
+      {i:'🌬️',k:'Energía',v:'Eólica — vientos constantes del oeste'},
+      {i:'☀️',k:'Solar',v:'Paneles fotovoltaicos en zonas rurales'},
+      {i:'🏫',k:'Centro Winti',v:'Visitas educativas guiadas'},
+      {i:'🌿',k:'Impacto',v:'Reducción de emisiones en la región'},
+      {i:'📚',k:'"Winti"',v:'Palabra originaria que significa viento'},
+    ],
+    tags:['Energía eólica','Centro Winti','Educativo','Sustentabilidad'],
+  },
+];
+
+// Colores por cat para botones
+const CAT_COLORS = {
+  all:'#e8b84b', nat:'#3dca5c', his:'#4a9eff', gas:'#ff8c42', rel:'#b06cff', aven:'#00c9b1'
+};
+
+// ════════════════════════════════════════════════════════════
+//  CANVAS SETUP
+// ════════════════════════════════════════════════════════════
+const wrap = document.getElementById('canvasWrap');
+const canvas = document.getElementById('hexCanvas');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+let camX = 0, camY = 0;
+let zoom = 1;
+let hexSize = 70;
+let selectedId = null;
+let activeFilter = 'all';
+let isDrag = false, dragSX, dragSY, dragCX, dragCY;
+let hoverHex = null;
+let animT = 0;
+
+function resize() {
+  W = canvas.width  = wrap.clientWidth;
+  H = canvas.height = wrap.clientHeight;
+  camX = W/2; camY = H/2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── STARFIELD ──────────────────────────────────────────────
+const sc = document.getElementById('stars');
+const sctx = sc.getContext('2d');
+
+function resizeStars() {
+  sc.width  = window.innerWidth;
+  sc.height = window.innerHeight;
+}
+resizeStars();
+window.addEventListener('resize', resizeStars);
+
+const stars = Array.from({length:180}, () => ({
+  x:Math.random(), y:Math.random(),
+  r:Math.random()*1.5+0.3,
+  a:Math.random(),
+  spd:Math.random()*0.4+0.1,
+  phase:Math.random()*Math.PI*2,
+}));
+
+function drawStars(t) {
+  sctx.clearRect(0,0,sc.width,sc.height);
+  stars.forEach(s => {
+    const a = s.a * (0.5 + 0.5*Math.sin(t*s.spd + s.phase));
+    sctx.beginPath();
+    sctx.arc(s.x*sc.width, s.y*sc.height, s.r, 0, Math.PI*2);
+    sctx.fillStyle = `rgba(240,230,200,${a})`;
+    sctx.fill();
+  });
+}
+
+// ── HEX MATH ──────────────────────────────────────────────
+function hexToPixel(q, r, size) {
+  return {
+    x: size * (Math.sqrt(3)*q + Math.sqrt(3)/2*r),
+    y: size * (3/2 * r),
+  };
+}
+
+function pixelToHex(px, py, size) {
+  const q = (Math.sqrt(3)/3*px - 1/3*py) / size;
+  const r = (2/3 * py) / size;
+  return hexRound(q, r);
+}
+
+function hexRound(q, r) {
+  const s = -q-r;
+  let rq=Math.round(q), rr=Math.round(r), rs=Math.round(s);
+  const dq=Math.abs(rq-q), dr=Math.abs(rr-r), ds=Math.abs(rs-s);
+  if(dq>dr && dq>ds) rq=-rr-rs;
+  else if(dr>ds) rr=-rq-rs;
+  return {q:rq, r:rr};
+}
+
+function hexCorner(cx, cy, size, i) {
+  const a = Math.PI/180 * (60*i + 30);
+  return {x: cx + size*Math.cos(a), y: cy + size*Math.sin(a)};
+}
+
+// Obtener todos los hexágonos del grid (incluyendo vacíos)
+function getGridHexes() {
+  const hexes = [];
+  const range = 5;
+  for(let q=-range; q<=range; q++) {
+    for(let r=-range; r<=range; r++) {
+      if(Math.abs(q+r) <= range) {
+        const loc = LOCS.find(l=>l.q===q && l.r===r) || null;
+        hexes.push({q, r, loc});
+      }
+    }
+  }
+  return hexes;
+}
+
+// ── DRAW HEX ──────────────────────────────────────────────
+function drawHex(q, r, loc, isHover, isSelected, t) {
+  const p = hexToPixel(q, r, hexSize * zoom);
+  const cx = camX + p.x;
+  const cy = camY + p.y;
+  const sz = hexSize * zoom;
+  const visible = activeFilter === 'all' || (loc && loc.catKey === activeFilter);
+
+  // Skip if off screen
+  if(cx < -sz*2 || cx > W+sz*2 || cy < -sz*2 || cy > H+sz*2) return;
+
+  ctx.save();
+
+  // Hover/select lift effect
+  let lift = 0;
+  if(isSelected && loc) lift = -6;
+  else if(isHover && loc) lift = -3;
+
+  ctx.translate(cx, cy + lift);
+
+  // ── Hexagon path ──
+  ctx.beginPath();
+  for(let i=0; i<6; i++) {
+    const c = hexCorner(0, 0, sz-1, i);
+    i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y);
+  }
+  ctx.closePath();
+
+  if(loc && visible) {
+    // Hexágono con ubicación
+    const pulse = isSelected ? 0.15*Math.sin(t*3) : 0;
+
+    // Shadow for depth
+    ctx.shadowColor = loc.color + '60';
+    ctx.shadowBlur = isSelected ? 20 : (isHover ? 12 : 5);
+    ctx.shadowOffsetY = isSelected ? 6 : 3;
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(-sz*0.5,-sz*0.8,sz*0.3,sz*0.8);
+    grad.addColorStop(0, lightenHex(loc.color, 0.4));
+    grad.addColorStop(0.4, loc.color);
+    grad.addColorStop(1, darkenHex(loc.color, 0.5));
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Inner hex (top face illusion)
+    ctx.beginPath();
+    for(let i=0; i<6; i++) {
+      const c = hexCorner(0, -sz*0.08, sz*0.78, i);
+      i===0?ctx.moveTo(c.x,c.y):ctx.lineTo(c.x,c.y);
+    }
+    ctx.closePath();
+    const topGrad = ctx.createLinearGradient(-sz*0.3,-sz*0.7,sz*0.3,sz*0.1);
+    topGrad.addColorStop(0, lightenHex(loc.color, 0.7));
+    topGrad.addColorStop(0.5, lightenHex(loc.color, 0.2));
+    topGrad.addColorStop(1, loc.color);
+    ctx.fillStyle = topGrad;
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = isSelected ? '#fff' : lightenHex(loc.color, 0.6);
+    ctx.lineWidth = isSelected ? 2 : 1;
+    ctx.shadowColor = 'transparent';
+    ctx.stroke();
+
+    // Pulse ring for selected
+    if(isSelected) {
+      ctx.beginPath();
+      for(let i=0; i<6; i++) {
+        const c = hexCorner(0, 0, sz + 4 + pulse*8, i);
+        i===0?ctx.moveTo(c.x,c.y):ctx.lineTo(c.x,c.y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = loc.color + '80';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // Emoji
+    ctx.shadowColor = 'transparent';
+    ctx.font = `${Math.floor(sz*0.4)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(loc.emoji, 0, -sz*0.05);
+
+    // Label
+    ctx.font = `600 ${Math.floor(sz*0.18)}px 'Exo 2',sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(loc.name, 0, sz*0.45);
+
+  } else if(loc && !visible) {
+    // Ubicación filtrada — muy apagada
+    ctx.shadowColor = 'transparent';
+    ctx.fillStyle = 'rgba(30,35,50,0.6)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+  } else {
+    // Hexágono vacío — terreno
+    ctx.shadowColor = 'transparent';
+
+    // Variación de color basada en posición (simula terreno)
+    const elevation = (Math.sin(q*0.8)*0.5 + Math.cos(r*0.6)*0.3 + Math.sin((q+r)*0.5)*0.2) * 0.5 + 0.5;
+    const isLowland = elevation < 0.4;
+    const isMid = elevation < 0.65;
+
+    let c1, c2;
+    if(isLowland) { c1='#1a1508'; c2='#12100a'; }      // llanura árida
+    else if(isMid) { c1='#141a0e'; c2='#0d1208'; }     // piedemonte
+    else { c1='#101520'; c2='#0a1018'; }                 // sierra
+
+    const tg = ctx.createLinearGradient(-sz*0.4,-sz*0.7,sz*0.3,sz*0.6);
+    tg.addColorStop(0, c1); tg.addColorStop(1, c2);
+    ctx.fillStyle = tg;
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(88,120,80,0.08)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // Dots topográficos en algunos hexs
+    if((q+r*3)%5===0 && elevation > 0.5) {
+      ctx.fillStyle = 'rgba(88,120,60,0.15)';
+      ctx.beginPath();
+      ctx.arc(0, 0, sz*0.08, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
+// ── COLOR UTILS ──────────────────────────────────────────
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+function lightenHex(hex, amount) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+Math.floor((255-r)*amount))},${Math.min(255,g+Math.floor((255-g)*amount))},${Math.min(255,b+Math.floor((255-b)*amount))})`;
+}
+
+function darkenHex(hex, amount) {
+  const [r,g,b] = hexToRgb(hex);
+  return `rgb(${Math.floor(r*(1-amount))},${Math.floor(g*(1-amount))},${Math.floor(b*(1-amount))})`;
+}
+
+// ── DRAW FRAME ────────────────────────────────────────────
+function drawFrame(t) {
+  ctx.clearRect(0,0,W,H);
+
+  // Background gradient
+  const bg = ctx.createLinearGradient(0,0,W,H);
+  bg.addColorStop(0,'#0b0d16');
+  bg.addColorStop(1,'#06090f');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0,0,W,H);
+
+  const hexes = getGridHexes();
+
+  // Sort: draw non-selected first, selected last (on top)
+  const sorted = [...hexes].sort((a,b) => {
+    const asel = selectedId && a.loc && a.loc.id===selectedId ? 1 : 0;
+    const bsel = selectedId && b.loc && b.loc.id===selectedId ? 1 : 0;
+    return asel - bsel;
+  });
+
+  sorted.forEach(({q,r,loc}) => {
+    const isSel = selectedId && loc && loc.id===selectedId;
+    const isHov = hoverHex && hoverHex.q===q && hoverHex.r===r && loc;
+    drawHex(q, r, loc, isHov && !isSel, isSel, t);
+  });
+
+  // Draw connecting lines between nearby locs
+  if(activeFilter === 'all') {
+    const pairs = [['aim','oli'],['aim','olv'],['aim','mac'],['maz','aim'],['pan','olv']];
+    pairs.forEach(([a,b]) => {
+      const la = LOCS.find(l=>l.id===a);
+      const lb = LOCS.find(l=>l.id===b);
+      if(!la||!lb) return;
+      const pa = hexToPixel(la.q, la.r, hexSize*zoom);
+      const pb = hexToPixel(lb.q, lb.r, hexSize*zoom);
+      ctx.beginPath();
+      ctx.moveTo(camX+pa.x, camY+pa.y);
+      ctx.lineTo(camX+pb.x, camY+pb.y);
+      ctx.strokeStyle = 'rgba(232,184,75,0.06)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4,8]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+}
+
+// ── ANIMATION LOOP ────────────────────────────────────────
+function animate(ts) {
+  animT = ts/1000;
+  drawStars(animT);
+  drawFrame(animT);
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+
+// ── INTERACTION ───────────────────────────────────────────
+canvas.addEventListener('mousedown', e => {
+  isDrag=true; dragSX=e.clientX; dragSY=e.clientY;
+  dragCX=camX; dragCY=camY;
+  wrap.classList.add('drag');
+});
+
+canvas.addEventListener('mousemove', e => {
+  if(isDrag) {
+    camX = dragCX + (e.clientX-dragSX);
+    camY = dragCY + (e.clientY-dragSY);
+  } else {
+    // Hover detection
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left - camX;
+    const my = e.clientY - rect.top  - camY;
+    const h = pixelToHex(mx/zoom, my/zoom, hexSize);
+    const loc = LOCS.find(l=>l.q===h.q && l.r===h.r) || null;
+    hoverHex = loc ? h : null;
+    canvas.style.cursor = loc ? 'pointer' : 'grab';
+
+    const tip = document.getElementById('tip');
+    if(loc && (activeFilter==='all'||loc.catKey===activeFilter)) {
+      document.getElementById('tipName').textContent = loc.emoji+' '+loc.name;
+      document.getElementById('tipCat').textContent = loc.cat.toUpperCase();
+      tip.style.display='block';
+      tip.style.left=(e.clientX+14)+'px';
+      tip.style.top=(e.clientY-8)+'px';
+    } else {
+      tip.style.display='none';
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  wrap.classList.remove('drag');
+  if(Math.abs(e.clientX-dragSX)<5 && Math.abs(e.clientY-dragSY)<5) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left - camX;
+    const my = e.clientY - rect.top  - camY;
+    const h = pixelToHex(mx/zoom, my/zoom, hexSize);
+    const loc = LOCS.find(l=>l.q===h.q&&l.r===h.r) || null;
+    if(loc && (activeFilter==='all'||loc.catKey===activeFilter)) {
+      selectLoc(loc.id);
+    }
+  }
+  isDrag=false;
+});
+
+canvas.addEventListener('mouseleave', () => {
+  isDrag=false; hoverHex=null;
+  document.getElementById('tip').style.display='none';
+  wrap.classList.remove('drag');
+});
+
+canvas.addEventListener('wheel', e => {
+  const oldZoom = zoom;
+  zoom = Math.max(0.5, Math.min(2.5, zoom - e.deltaY*0.001));
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  camX = mx - (mx-camX)*(zoom/oldZoom);
+  camY = my - (my-camY)*(zoom/oldZoom);
+  e.preventDefault();
+}, {passive:false});
+
+// Touch
+let lastTouchDist=0, touchStart=[];
+canvas.addEventListener('touchstart', e => {
+  if(e.touches.length===1) {
+    isDrag=true;
+    dragSX=e.touches[0].clientX; dragSY=e.touches[0].clientY;
+    dragCX=camX; dragCY=camY;
+  } else if(e.touches.length===2) {
+    lastTouchDist = Math.hypot(
+      e.touches[0].clientX-e.touches[1].clientX,
+      e.touches[0].clientY-e.touches[1].clientY
+    );
+  }
+  touchStart = [...e.touches].map(t=>({x:t.clientX,y:t.clientY}));
+  e.preventDefault();
+}, {passive:false});
+
+canvas.addEventListener('touchmove', e => {
+  if(e.touches.length===1 && isDrag) {
+    camX = dragCX+(e.touches[0].clientX-dragSX);
+    camY = dragCY+(e.touches[0].clientY-dragSY);
+  } else if(e.touches.length===2) {
+    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    zoom = Math.max(0.5,Math.min(2.5,zoom*(d/lastTouchDist)));
+    lastTouchDist=d;
+  }
+  e.preventDefault();
+}, {passive:false});
+
+canvas.addEventListener('touchend', e => {
+  if(e.changedTouches.length===1 && e.touches.length===0) {
+    const t=e.changedTouches[0];
+    if(Math.abs(t.clientX-dragSX)<10&&Math.abs(t.clientY-dragSY)<10) {
+      const rect=canvas.getBoundingClientRect();
+      const h=pixelToHex((t.clientX-rect.left-camX)/zoom,(t.clientY-rect.top-camY)/zoom,hexSize);
+      const loc=LOCS.find(l=>l.q===h.q&&l.r===h.r)||null;
+      if(loc) selectLoc(loc.id);
+    }
+  }
+  isDrag=false;
+});
+
+// ── SELECT LOCATION ───────────────────────────────────────
+function selectLoc(id) {
+  selectedId = id;
+  const loc = LOCS.find(l=>l.id===id);
+  if(!loc) return;
+
+  // Fly camera to hex
+  const p = hexToPixel(loc.q, loc.r, hexSize*zoom);
+  const targetX = W/2 - p.x;
+  const targetY = H/2 - p.y + 30;
+  const startX=camX, startY=camY;
+  const startT = performance.now();
+  const dur = 500;
+  function flyAnim(now) {
+    const prog = Math.min(1,(now-startT)/dur);
+    const ease = 1-Math.pow(1-prog,3);
+    camX = startX + (targetX-startX)*ease;
+    camY = startY + (targetY-startY)*ease;
+    if(prog<1) requestAnimationFrame(flyAnim);
+  }
+  requestAnimationFrame(flyAnim);
+
+  // Update panel
+  const pTitle = document.getElementById('pTitle');
+  const pSub   = document.getElementById('pSub');
+  const pBadge = document.getElementById('pBadge');
+  pTitle.textContent = loc.name;
+  pTitle.style.color = loc.color;
+  pSub.textContent = loc.cat;
+  pSub.style.color = loc.color;
+  pBadge.textContent = loc.emoji;
+  pBadge.style.background = loc.color+'25';
+
+  // Stats
+  document.getElementById('pStats').innerHTML = loc.stats.map(s=>`
+    <div class="stat">
+      <div class="stat" style="background:${loc.color}10;border-color:${loc.color}30">
+        <div class="stat" style="position:absolute;top:0;left:0;right:0;height:2px;background:${loc.color}"></div>
+        <span class="stat-val" style="color:${loc.color}">${s.v}</span>
+        <span class="stat-lbl">${s.l}</span>
+      </div>
+    </div>
+  `).join('');
+
+  // Simpler stats
+  document.getElementById('pStats').innerHTML = loc.stats.map(s=>`
+    <div class="stat" style="background:${loc.color}08;border-color:${loc.color}25;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:${loc.color};border-radius:8px 8px 0 0"></div>
+      <span class="stat-val" style="color:${loc.color}">${s.v}</span>
+      <span class="stat-lbl">${s.l}</span>
+    </div>
+  `).join('');
+
+  // Body
+  const body = document.getElementById('pBody');
+  body.innerHTML = `
+    <div class="p-section-title">Descripción</div>
+    <div class="p-desc">${loc.desc}</div>
+
+    <div class="p-section-title">Datos clave</div>
+    ${loc.facts.map(f=>`
+      <div class="fact">
+        <span class="fact-ico">${f.i}</span>
+        <span class="fact-key">${f.k}</span>
+        <span class="fact-val">${f.v}</span>
+      </div>
+    `).join('')}
+
+    <div class="tags">
+      ${loc.tags.map(t=>`<span class="htag" style="color:${loc.color};border-color:${loc.color}40;background:${loc.color}12">${t}</span>`).join('')}
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="p-section-title">Explorar más</div>
+      ${buildLocList(id)}
+    </div>
+  `;
+
+  body.querySelectorAll('.loc-item').forEach(el => {
+    el.addEventListener('click', ()=>selectLoc(el.dataset.id));
+  });
+}
+
+function buildLocList(selId='') {
+  const list = LOCS.filter(l=>activeFilter==='all'||l.catKey===activeFilter);
+  return list.map(l=>`
+    <div class="loc-item ${l.id===selId?'sel':''}" data-id="${l.id}">
+      <div class="li-hex" style="background:${l.color}20">${l.emoji}</div>
+      <div class="li-info">
+        <div class="li-name" style="color:${l.id===selId?l.color:'var(--text)'}">${l.name}</div>
+        <div class="li-cat">${l.cat}</div>
+      </div>
+      <div class="li-arr">›</div>
+    </div>
+  `).join('');
+}
+
+// ── FILTER ────────────────────────────────────────────────
+function setFilter(cat, btn) {
+  activeFilter = cat;
+  selectedId = null;
+  document.querySelectorAll('.cat-btn').forEach(b=>{
+    b.classList.remove('on');
+    b.style.background='rgba(255,255,255,0.03)';
+    b.style.borderColor='rgba(255,255,255,0.08)';
+    b.style.color='var(--muted)';
+  });
+  btn.classList.add('on');
+  const c = CAT_COLORS[cat];
+  btn.style.background=c+'28';
+  btn.style.borderColor=c+'60';
+  btn.style.color='#000';
+  btn.style.fontWeight='700';
+
+  // Reset panel
+  document.getElementById('pTitle').textContent='Seleccioná un hex';
+  document.getElementById('pTitle').style.color='var(--gold2)';
+  document.getElementById('pSub').textContent='Filtro: '+btn.textContent.trim();
+  document.getElementById('pSub').style.color='var(--muted)';
+  document.getElementById('pBadge').textContent='⬡';
+  document.getElementById('pBadge').style.background='rgba(232,184,75,0.15)';
+  document.getElementById('pStats').innerHTML=`
+    <div class="stat"><span class="stat-val" style="color:var(--gold2)">${LOCS.filter(l=>cat==='all'||l.catKey===cat).length}</span><span class="stat-lbl">Visibles</span></div>
+    <div class="stat"><span class="stat-val" style="color:var(--blue2)">Hex</span><span class="stat-lbl">Grid</span></div>
+    <div class="stat"><span class="stat-val" style="color:var(--green2)">3D</span><span class="stat-lbl">Isométrico</span></div>
+  `;
+  document.getElementById('pBody').innerHTML=`
+    <div class="p-section-title">Ubicaciones</div>
+    ${buildLocList()}
+  `;
+  document.querySelectorAll('#pBody .loc-item').forEach(el=>{
+    el.addEventListener('click',()=>selectLoc(el.dataset.id));
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+// Populate initial list
+document.getElementById('pBody').innerHTML=`
+  <div class="p-section-title">Todas las ubicaciones</div>
+  ${buildLocList()}
+`;
+document.querySelectorAll('#pBody .loc-item').forEach(el=>{
+  el.addEventListener('click',()=>selectLoc(el.dataset.id));
+});
+
+// Auto-open Aimogasta
+setTimeout(()=>selectLoc('aim'), 400);
+</script>
+</body>
+</html>
